@@ -7,8 +7,8 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 /**
- * An {@link ExecutableTask} produces a flux of T in exchange for an array of {@link Object}.<br>
- * Of course, this array may be empty.<br>
+ * An {@link ExecutableTask} produces a {@link Mono} of T in exchange for a {@link Flux} of {@link Mono}.<br>
+ * Of course, this {@link Flux} may be a {@link Flux#empty()}.<br>
  *
  * @param <T> the parameterized type of object produced by the {@link #execute(Flux)} method
  */
