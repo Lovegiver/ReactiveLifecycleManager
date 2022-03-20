@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @Log4j2
 public class TaskTest {
 
@@ -43,6 +45,21 @@ public class TaskTest {
         };
         Task task4 = new Task("Task 4", executable4, Set.of(task1, task3));
         System.out.println("Task 4 implemented");
+
+        var task1Hashcode = task1.hashCode();
+        var task1HashcodeFromTask3 = task3.getPreviousTasksSet().stream()
+                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .map(Task::hashCode)
+                .findAny()
+                .orElseThrow();
+        var task1HashcodeFromTask4 = task4.getPreviousTasksSet().stream()
+                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .map(Task::hashCode)
+                .findAny()
+                .orElseThrow();
+
+        assertEquals(task1Hashcode,task1HashcodeFromTask3);
+        assertEquals(task1HashcodeFromTask3,task1HashcodeFromTask4);
 
         task1.execute().log().subscribe(System.out::println);
         task2.execute().log().subscribe(System.out::println);
