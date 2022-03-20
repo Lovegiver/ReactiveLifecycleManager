@@ -29,7 +29,8 @@ public class Task {
     }
 
     public Mono<?> execute() {
-        previousTasksSet.forEach(task -> task.getExpectedResult().subscribe(System.out::println));
+        previousTasksSet.forEach(task ->
+                task.getExpectedResult().log().subscribe(System.out::println));
         return this.executableTask.execute(this.inputFlux);
     }
 }

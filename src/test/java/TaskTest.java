@@ -2,11 +2,9 @@ import com.citizenweb.training.reactivelifecyclemanager.model.ExecutableTask;
 import com.citizenweb.training.reactivelifecyclemanager.model.Task;
 import lombok.extern.log4j.Log4j2;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,9 +36,18 @@ public class TaskTest {
         Task task3 = new Task("Task 3", executable3, Set.of(task1, task2));
         System.out.println("Task 3 implemented");
 
-        task1.execute();
-        task2.execute();
-        task3.execute();
+        ExecutableTask<String> executable4 = inputs -> {
+            AtomicReference<String> result = new AtomicReference<>("");
+            inputs.subscribe(mono -> result.set(result.get() + getValue(mono)));
+            return Mono.just(result.get());
+        };
+        Task task4 = new Task("Task 4", executable4, Set.of(task1, task3));
+        System.out.println("Task 4 implemented");
+
+        task1.execute().log().subscribe(System.out::println);
+        task2.execute().log().subscribe(System.out::println);
+        task3.execute().log().subscribe(System.out::println);
+        task4.execute().log().subscribe(System.out::println);
 
     }
 
