@@ -47,12 +47,12 @@ public class TaskTest {
         System.out.println("Task 4 implemented");
 
         var task1Hashcode = task1.hashCode();
-        var task1HashcodeFromTask3 = task3.getPreviousTasksSet().stream()
+        var task1HashcodeFromTask3 = task3.getPredecessors().stream()
                 .filter(task -> "Task 1".equals(task.getTaskName()))
                 .map(Task::hashCode)
                 .findAny()
                 .orElseThrow();
-        var task1HashcodeFromTask4 = task4.getPreviousTasksSet().stream()
+        var task1HashcodeFromTask4 = task4.getPredecessors().stream()
                 .filter(task -> "Task 1".equals(task.getTaskName()))
                 .map(Task::hashCode)
                 .findAny()

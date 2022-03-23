@@ -7,8 +7,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface TaskHelper {
-    static Set<Mono<?>> getPreviousTasksResultsMonos(Task task) {
-        return task.getPreviousTasksSet().stream()
+    static Set<Mono<?>> getPreviousTasksResultsPublisher(Task task) {
+        return task.getPredecessors().stream()
                 .map(Task::getExpectedResult)
                 .collect(Collectors.toSet());
     }
