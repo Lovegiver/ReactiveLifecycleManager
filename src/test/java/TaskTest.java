@@ -32,28 +32,32 @@ public class TaskTest {
 
         ExecutableTask<String> executable3 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            inputs.subscribe(mono -> result.set(result.get() + getValue(mono)));
-            return Mono.just(result.get());
+            return Mono.zip(inputs[0],inputs[1],(m1, m2) -> {
+                result.set(((String) m1).concat((String) m2));
+                return result.get();
+            });
         };
         Task task3 = new Task("Task 3", executable3, Set.of(task1, task2));
         System.out.println("Task 3 implemented");
 
         ExecutableTask<String> executable4 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            inputs.subscribe(mono -> result.set(result.get() + getValue(mono)));
-            return Mono.just(result.get());
+            return Mono.zip(inputs[0],inputs[1],(m1, m2) -> {
+                result.set(((String) m1).concat((String) m2));
+                return result.get();
+            });
         };
         Task task4 = new Task("Task 4", executable4, Set.of(task1, task3));
         System.out.println("Task 4 implemented");
 
         var task1Hashcode = task1.hashCode();
         var task1HashcodeFromTask3 = task3.getPredecessors().stream()
-                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .filter(task -> "Task 1".equals(task.getMonitor().getName()))
                 .map(Task::hashCode)
                 .findAny()
                 .orElseThrow();
         var task1HashcodeFromTask4 = task4.getPredecessors().stream()
-                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .filter(task -> "Task 1".equals(task.getMonitor().getName()))
                 .map(Task::hashCode)
                 .findAny()
                 .orElseThrow();
@@ -68,7 +72,4 @@ public class TaskTest {
 
     }
 
-    private <T> T getValue(Mono<T> mono) {
-        return mono.block();
-    }
 }

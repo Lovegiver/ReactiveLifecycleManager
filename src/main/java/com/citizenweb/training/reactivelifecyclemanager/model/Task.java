@@ -8,7 +8,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
-import java.util.UUID;
 
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -24,7 +23,7 @@ public class Task implements TaskHelper {
     @ToString.Include
     private Set<Task> successors;
     private final ExecutableTask<?> executableTask;
-    private final Flux<Mono<?>> inputFlux;
+    private final Mono<?>[] inputArray;
     private final Mono<?> expectedResult;
     @EqualsAndHashCode.Include
     @ToString.Include
@@ -34,15 +33,13 @@ public class Task implements TaskHelper {
         this.monitor = new Monitor(EventType.TASK,taskName);
         this.executableTask = executableTask;
         this.predecessors = predecessors;
-        Set<Mono<?>> previousTasksResults = TaskHelper.getPreviousTasksResultsPublisher(this);
-        Flux<Mono<?>> expectedInputs = Flux.fromIterable(previousTasksResults);
-        this.inputFlux = expectedInputs;
-        this.expectedResult = executableTask.execute(expectedInputs);
+        this.inputArray = TaskHelper.getPreviousTasksResultsPublisher(this);
+        this.expectedResult = executableTask.execute(this.inputArray);
     }
 
     public Mono<?> execute() {
         predecessors.forEach(task ->
                 task.getExpectedResult().log().subscribe(System.out::println));
-        return this.executableTask.execute(this.inputFlux);
+        return this.executableTask.execute(this.inputArray);
     }
 }
