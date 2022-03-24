@@ -1,5 +1,6 @@
 package com.citizenweb.training.reactivelifecyclemanager.model;
 
+import com.citizenweb.training.reactivelifecyclemanager.exception.TaskExecutionException;
 import com.citizenweb.training.reactivelifecyclemanager.service.TaskHelper;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -47,10 +48,14 @@ public class Task implements TaskHelper {
 
     public Publisher<?> execute() {
         predecessors.forEach(task -> {
+            //noinspection ReactiveStreamsUnusedPublisher
             if (task.getExpectedResult() instanceof Mono<?>) {
                 Mono.from(task.getExpectedResult()).log().subscribe(System.out::println);
-            } else if (task.getExpectedResult() instanceof Flux<?>) {
+            } else //noinspection ReactiveStreamsUnusedPublisher
+                if (task.getExpectedResult() instanceof Flux<?>) {
                 Flux.from(task.getExpectedResult()).log().subscribe(System.out::println);
+            } else {
+                throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());
             }
         });
         return this.executableTask.execute(this.inputArray);
