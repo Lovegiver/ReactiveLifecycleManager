@@ -32,7 +32,7 @@ public class TaskTest {
 
         ExecutableTask<String> executable3 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            return Mono.zip(inputs[0],inputs[1],(m1, m2) -> {
+            return Mono.zip( ((Mono<?>) inputs[0]), ((Mono<?>) inputs[1]),(m1, m2) -> {
                 result.set(((String) m1).concat((String) m2));
                 return result.get();
             });
@@ -42,7 +42,7 @@ public class TaskTest {
 
         ExecutableTask<String> executable4 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            return Mono.zip(inputs[0],inputs[1],(m1, m2) -> {
+            return Mono.zip( ((Mono<?>) inputs[0]), ((Mono<?>) inputs[1]),(m1, m2) -> {
                 result.set(((String) m1).concat((String) m2));
                 return result.get();
             });
@@ -65,10 +65,10 @@ public class TaskTest {
         assertEquals(task1Hashcode,task1HashcodeFromTask3);
         assertEquals(task1HashcodeFromTask3,task1HashcodeFromTask4);
 
-        task1.execute().log().subscribe(System.out::println);
-        task2.execute().log().subscribe(System.out::println);
-        task3.execute().log().subscribe(System.out::println);
-        task4.execute().log().subscribe(System.out::println);
+        Mono.from(task1.execute()).log().subscribe(System.out::println);
+        Mono.from(task2.execute()).log().subscribe(System.out::println);
+        Mono.from(task3.execute()).log().subscribe(System.out::println);
+        Mono.from(task4.execute()).log().subscribe(System.out::println);
 
     }
 

@@ -4,6 +4,8 @@ import com.citizenweb.training.reactivelifecyclemanager.service.TaskHelper;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
@@ -27,9 +29,9 @@ public class Task implements TaskHelper {
     /** Domain logic encapsulated into THIS {@link Task} */
     private final ExecutableTask<?> executableTask;
     /** Array containing the result {@link Mono}s of all previous {@link Task}s */
-    private final Mono<?>[] inputArray;
+    private final Publisher<?>[] inputArray;
     /** The result produced by THIS {@link Task} */
-    private final Mono<?> expectedResult;
+    private final Publisher<?> expectedResult;
     /** The initial rank for THIS {@link Task} */
     @EqualsAndHashCode.Include
     @ToString.Include
@@ -43,9 +45,14 @@ public class Task implements TaskHelper {
         this.expectedResult = executableTask.execute(this.inputArray);
     }
 
-    public Mono<?> execute() {
-        predecessors.forEach(task ->
-                task.getExpectedResult().log().subscribe(System.out::println));
+    public Publisher<?> execute() {
+        predecessors.forEach(task -> {
+            if (task.getExpectedResult() instanceof Mono<?>) {
+                Mono.from(task.getExpectedResult()).log().subscribe(System.out::println);
+            } else if (task.getExpectedResult() instanceof Flux<?>) {
+                Flux.from(task.getExpectedResult()).log().subscribe(System.out::println);
+            }
+        });
         return this.executableTask.execute(this.inputArray);
     }
 }
