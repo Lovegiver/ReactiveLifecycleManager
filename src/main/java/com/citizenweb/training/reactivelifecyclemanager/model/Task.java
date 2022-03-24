@@ -5,12 +5,14 @@ import com.citizenweb.training.reactivelifecyclemanager.service.TaskHelper;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import lombok.extern.log4j.Log4j2;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
 
+@Log4j2
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(onlyExplicitlyIncluded = true)
@@ -50,10 +52,10 @@ public class Task implements TaskHelper {
         predecessors.forEach(task -> {
             //noinspection ReactiveStreamsUnusedPublisher
             if (task.getExpectedResult() instanceof Mono<?>) {
-                Mono.from(task.getExpectedResult()).log().subscribe(System.out::println);
+                Mono.from(task.getExpectedResult()).log().subscribe(log::info);
             } else //noinspection ReactiveStreamsUnusedPublisher
                 if (task.getExpectedResult() instanceof Flux<?>) {
-                Flux.from(task.getExpectedResult()).log().subscribe(System.out::println);
+                Flux.from(task.getExpectedResult()).log().subscribe(log::info);
             } else {
                 throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());
             }
