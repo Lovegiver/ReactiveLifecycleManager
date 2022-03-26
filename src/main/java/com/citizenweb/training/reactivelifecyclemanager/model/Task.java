@@ -55,7 +55,7 @@ public class Task implements TaskHelper {
 
     public Publisher<?> execute() {
         Scheduler scheduler = Schedulers.fromExecutor(TaskExecutor.getExecutor());
-        predecessors.parallelStream().forEach(task -> {
+        predecessors.forEach(task -> {
             Disposable disposable;
             //noinspection ReactiveStreamsUnusedPublisher
             if (task.getExpectedResult() instanceof Mono<?>) {
