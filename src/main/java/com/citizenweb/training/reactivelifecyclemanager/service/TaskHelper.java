@@ -14,4 +14,8 @@ public interface TaskHelper {
                 .collect(Collectors.toSet());
         return previousTasksSet.toArray(previousTasksArray);
     }
+
+    static void setThisAsSuccessor(Task task) {
+        task.getPredecessors().forEach(p -> p.getSuccessors().add(task));
+    }
 }

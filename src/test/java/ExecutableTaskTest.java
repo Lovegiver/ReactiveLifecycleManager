@@ -12,20 +12,18 @@ public class ExecutableTaskTest {
     @Test
     public void createExecutable() {
 
-        final Mono<?>[] NO_ARGS = {};
-
         ExecutableTask<String> executable1 = inputs -> {
             String result = "Result 1";
             return Mono.just(result);
         };
-        Publisher<?> mono1 = executable1.execute(NO_ARGS);
+        Publisher<?> mono1 = executable1.execute(ExecutableTask.FIRST_TASK_NO_ARGS);
         System.out.println("Executable 1 implemented");
 
         ExecutableTask<String> executable2 = inputs -> {
             String result = "Result 2";
             return Mono.just(result);
         };
-        Publisher<?> mono2 = executable2.execute(NO_ARGS);
+        Publisher<?> mono2 = executable2.execute(ExecutableTask.FIRST_TASK_NO_ARGS);
         System.out.println("Executable 2 implemented");
 
         Mono<?>[] monoArgs = new Mono[] {((Mono<?>) mono1),((Mono<?>) mono2)};

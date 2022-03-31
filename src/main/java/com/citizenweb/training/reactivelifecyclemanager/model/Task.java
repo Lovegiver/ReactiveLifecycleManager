@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,10 +30,10 @@ public class Task implements TaskHelper {
     @EqualsAndHashCode.Include
     @ToString.Include
     private final Set<Task> predecessors;
-    /** {@link Set} of {@link Task} to be done <b>after</b>> THIS one */
-    @EqualsAndHashCode.Include
-    @ToString.Include
-    private Set<Task> successors;
+    /** {@link Set} of {@link Task} to be done <b>after</b> THIS one */
+    //@EqualsAndHashCode.Include
+    //@ToString.Include
+    private Set<Task> successors = new HashSet<>();
     /** Domain logic encapsulated into THIS {@link Task} */
     private final ExecutableTask<?> executableTask;
     /** Array containing the result {@link Mono}s of all previous {@link Task}s */
@@ -45,12 +46,14 @@ public class Task implements TaskHelper {
     private int rank = -1;
     private final ConcurrentHashMap<Task,Boolean> previousTasksStates = new ConcurrentHashMap<>();
 
-    public Task(String taskName, ExecutableTask<?> executableTask, Set<Task> predecessors) {
+    public Task(String taskName, ExecutableTask<?> executableTask,
+                Set<Task> predecessors) {
         this.monitor = new Monitor(EventType.TASK,taskName);
         this.executableTask = executableTask;
         this.predecessors = predecessors;
         this.inputArray = TaskHelper.getPreviousTasksResultsPublisher(this);
         this.expectedResult = executableTask.execute(this.inputArray);
+        TaskHelper.setThisAsSuccessor(this);
     }
 
     public Publisher<?> execute() {
@@ -62,12 +65,30 @@ public class Task implements TaskHelper {
                 disposable = Mono.from(task.getExpectedResult())
                         .log()
                         .subscribeOn(scheduler)
+                        .doOnSubscribe(o -> {
+                            log.info(String.format("Task [ %s ] started", task.getMonitor().getName()));
+                            this.previousTasksStates.put(task, Boolean.FALSE);
+                        })
+                        .doOnError(log::error)
+                        .doOnSuccess(o -> {
+                            log.info(String.format("Task [ %s ] succeeded", task.getMonitor().getName()));
+                            this.previousTasksStates.put(task, Boolean.TRUE);
+                        })
                         .subscribe(log::info);
             } else //noinspection ReactiveStreamsUnusedPublisher
                 if (task.getExpectedResult() instanceof Flux<?>) {
                 disposable = Flux.from(task.getExpectedResult())
                         .log()
                         .subscribeOn(scheduler)
+                        .doOnSubscribe(o -> {
+                            log.info(String.format("Task [ %s ] started", task.getMonitor().getName()));
+                            this.previousTasksStates.put(task, Boolean.FALSE);
+                        })
+                        .doOnError(log::error)
+                        .doOnComplete( () -> {
+                            log.info(String.format("Task [ %s ] succeeded", task.getMonitor().getName()));
+                            this.previousTasksStates.put(task, Boolean.TRUE);
+                        })
                         .subscribe(log::info);
             } else {
                 throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());

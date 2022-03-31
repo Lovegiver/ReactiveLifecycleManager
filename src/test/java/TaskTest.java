@@ -77,10 +77,10 @@ public class TaskTest {
         assertEquals(task1Hashcode,task1HashcodeFromTask3);
         assertEquals(task1HashcodeFromTask3,task1HashcodeFromTask4);
 
-        Mono.from(task1.execute()).log().subscribe(System.out::println);
+        /*Mono.from(task1.execute()).log().subscribe(System.out::println);
         Mono.from(task2.execute()).log().subscribe(System.out::println);
         Mono.from(task3.execute()).log().subscribe(System.out::println);
-        Mono.from(task4.execute()).log().subscribe(System.out::println);
+        Mono.from(task4.execute()).log().subscribe(System.out::println);*/
         Disposable task5Disposable = Mono.from(task5.execute()).log().subscribe(System.out::println);
         while (!task5Disposable.isDisposed()) {
             Mono.delay(Duration.ofSeconds(10)).subscribe();
