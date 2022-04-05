@@ -15,7 +15,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 @Log4j2
 @Data
@@ -31,8 +31,6 @@ public class Task implements TaskHelper {
     @ToString.Include
     private final Set<Task> predecessors;
     /** {@link Set} of {@link Task} to be done <b>after</b> THIS one */
-    //@EqualsAndHashCode.Include
-    //@ToString.Include
     private Set<Task> successors = new HashSet<>();
     /** Domain logic encapsulated into THIS {@link Task} */
     private final ExecutableTask<?> executableTask;
@@ -40,15 +38,13 @@ public class Task implements TaskHelper {
     private final Publisher<?>[] inputArray;
     /** The result produced by THIS {@link Task} */
     private final Publisher<?> expectedResult;
-    /** The initial rank for THIS {@link Task} */
-    @EqualsAndHashCode.Include
-    @ToString.Include
-    private int rank = -1;
-    private final ConcurrentHashMap<Task,Boolean> previousTasksStates = new ConcurrentHashMap<>();
+
+    public final static Predicate<Task> isFirst = task -> task.getPredecessors().isEmpty();
+    public final static Predicate<Task> isLast = task -> task.getSuccessors().isEmpty();
 
     public Task(String taskName, ExecutableTask<?> executableTask,
                 Set<Task> predecessors) {
-        this.monitor = new Monitor(EventType.TASK,taskName);
+        this.monitor = new Monitor(EventType.TASK, taskName);
         this.executableTask = executableTask;
         this.predecessors = predecessors;
         this.inputArray = TaskHelper.getPreviousTasksResultsPublisher(this);
@@ -56,9 +52,16 @@ public class Task implements TaskHelper {
         TaskHelper.setThisAsSuccessor(this);
     }
 
+    public boolean isDone() {
+        return EventStatus.DONE.equals(this.getMonitor().getStatus());
+    }
+
     public Publisher<?> execute() {
         Scheduler scheduler = Schedulers.fromExecutor(TaskExecutor.getExecutor());
-        predecessors.forEach(task -> {
+        predecessors.stream()
+                .filter(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))
+                .forEach(task -> {
+            var monitor = task.getMonitor();
             Disposable disposable;
             //noinspection ReactiveStreamsUnusedPublisher
             if (task.getExpectedResult() instanceof Mono<?>) {
@@ -66,40 +69,56 @@ public class Task implements TaskHelper {
                         .log()
                         .subscribeOn(scheduler)
                         .doOnSubscribe(o -> {
-                            log.info(String.format("Task [ %s ] started", task.getMonitor().getName()));
-                            this.previousTasksStates.put(task, Boolean.FALSE);
+                            log.info(String.format("Task [ %s ] to be started", monitor.getName()));
                         })
-                        .doOnError(log::error)
+                        .doOnError(throwable -> {
+                            TaskHelper.updateTaskOnError.accept(task);
+                            log.error(throwable.getMessage());
+                        })
                         .doOnSuccess(o -> {
-                            log.info(String.format("Task [ %s ] succeeded", task.getMonitor().getName()));
-                            this.previousTasksStates.put(task, Boolean.TRUE);
+                            TaskHelper.updateTaskOnSuccess.accept(task);
+                            log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
                         })
-                        .subscribe(log::info);
+                        .subscribe(o -> {
+                            TaskHelper.updateTaskOnSubscribe.accept(task);
+                            log.info(String.format("Subscribing to Task [ %s ]", monitor.getName()));
+                        });
             } else //noinspection ReactiveStreamsUnusedPublisher
                 if (task.getExpectedResult() instanceof Flux<?>) {
                 disposable = Flux.from(task.getExpectedResult())
                         .log()
                         .subscribeOn(scheduler)
                         .doOnSubscribe(o -> {
-                            log.info(String.format("Task [ %s ] started", task.getMonitor().getName()));
-                            this.previousTasksStates.put(task, Boolean.FALSE);
+                            log.info(String.format("Task [ %s ] started", monitor.getName()));
                         })
-                        .doOnError(log::error)
+                        .doOnError(throwable -> {
+                            TaskHelper.updateTaskOnError.accept(task);
+                            log.error(throwable.getMessage());
+                        })
                         .doOnComplete( () -> {
-                            log.info(String.format("Task [ %s ] succeeded", task.getMonitor().getName()));
-                            this.previousTasksStates.put(task, Boolean.TRUE);
+                            TaskHelper.updateTaskOnSuccess.accept(task);
+                            log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
                         })
-                        .subscribe(log::info);
+                        .subscribe(o -> {
+                            TaskHelper.updateTaskOnSubscribe.accept(task);
+                        });
             } else {
                 throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());
             }
         });
-        log.info("Previous tasks states -> " + this.previousTasksStates);
         return Flux.defer(() -> Flux.from(this.expectedResult));
     }
 
-    public boolean areAllPreviousTasksDone() {
-        return this.previousTasksStates.values().stream().allMatch(Boolean.TRUE::equals);
+    public int computeScore() {
+        int score;
+        if (isFirst.test(this)) {
+            score = this.getSuccessors().size();
+        } else if (isLast.test(this)) {
+            score = this.getPredecessors().size();
+        } else {
+            score = this.getSuccessors().size() * this.getPredecessors().size();
+        }
+        return score;
     }
 
 }

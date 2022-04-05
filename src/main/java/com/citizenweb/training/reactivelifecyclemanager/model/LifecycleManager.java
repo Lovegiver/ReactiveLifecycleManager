@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,21 +29,41 @@ public class LifecycleManager implements LifecycleHelper {
     }
 
     public void execute() {
-        Set<Task> tasksWithoutSuccessors = LifecycleHelper.getLastTasks(this.tasks);
+        Set<Task> allTriggeringTasks = LifecycleHelper.getTerminalTasks(this.tasks, EventStatus.ALL);
         List<Set<Task>> allPaths = new ArrayList<>();
-        tasksWithoutSuccessors.forEach(task -> {
-            for (Task previousTask : task.getPredecessors()) {
-                Set<Task> taskPath = new HashSet<>();
-                taskPath.add(task);
-                LifecycleHelper.computeAllPaths(allPaths,taskPath,previousTask);
+        while (allTriggeringTasks.stream().anyMatch(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))) {
+            Set<Task> toBeTriggeredTasks = LifecycleHelper.getTerminalTasks(this.tasks, EventStatus.NEW);
+            ConcurrentHashMap<Task,Integer> scoredPaths = new ConcurrentHashMap<>();
+            toBeTriggeredTasks.forEach(task -> {
+                Set<Task> pathForTask = new HashSet<>();
+                LifecycleHelper.findAllTasksFromTree(pathForTask, task);
+                log.info("Task [ {} ] sub-tasks -> [ {} ]", task.getMonitor().getName(), pathForTask.stream()
+                        .map(t -> t.getMonitor().getName()).distinct().toArray());
+                allPaths.add(pathForTask); //FIXME
+                int pathWeight = pathForTask.stream()
+                        .filter(t -> EventStatus.NEW.equals(t.getMonitor().getStatus()))
+                        .mapToInt(Task::computeScore)
+                        .sum();
+                scoredPaths.put(task, pathWeight);
+                log.info("Task [ {} ] -> score [ {} ]", task.getMonitor().getName(), pathWeight);
+            });
+            Map.Entry<Task,Integer> entry = Collections.max(scoredPaths.entrySet(), Map.Entry.comparingByValue());
+            Task taskToExecute = entry.getKey();
+            taskToExecute.getMonitor().setStatus(EventStatus.RUNNING);
+            int result;
+            if (taskToExecute.getExpectedResult() instanceof Mono<?>) {
+                result = (int) Mono.from(taskToExecute.execute()).log().block();
+            } else {
+                result = (int) Flux.from(taskToExecute.execute()).log().blockLast();
             }
-        });
-        Map<Task,Integer> tasksScores = LifecycleHelper.computeTasksScores(this.tasks);
-        Map<Set<Task>,Integer> pathsScores = LifecycleHelper.computePathsScores(tasksScores,allPaths);
-        pathsScores.forEach( (path,pathWeight) -> {
-            Set<String> tasksNames = LifecycleHelper.translateFromTaskToString(path);
-            System.out.printf("Path : %s -> weight = %d\n",tasksNames,pathWeight);
-        });
+            log.info("RESULT for TASK [ {} ] = [ {} ]", taskToExecute.getMonitor().getName(), result);
+            taskToExecute.getMonitor().setStatus(EventStatus.DONE);
+        }
+
+        for (Task task : this.tasks) {
+            var monitor = task.getMonitor();
+            log.info("Task [ {} ] -> {}", monitor.getName(), monitor);
+        }
     }
 
 }

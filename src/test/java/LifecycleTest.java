@@ -1,7 +1,5 @@
-import com.citizenweb.training.reactivelifecyclemanager.model.ExecutableTask;
-import com.citizenweb.training.reactivelifecyclemanager.model.LifecycleHelper;
-import com.citizenweb.training.reactivelifecyclemanager.model.LifecycleManager;
-import com.citizenweb.training.reactivelifecyclemanager.model.Task;
+import com.citizenweb.training.reactivelifecyclemanager.model.*;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
@@ -83,26 +81,20 @@ public class LifecycleTest {
         Task t15 = new Task("Task 15", et15, Set.of(t8));
 
         Set<Task> allTasks = Set.of(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15);
-        Set<Task> lastTasks = LifecycleHelper.getLastTasks(allTasks);
-//        System.out.printf("Last tasks -> [ %s ]%n",lastTasks);
 
-        /*LifecycleHelper.computePath(new ConcurrentHashMap<>(), t13)
-                .forEach((key, value) -> {
-                    System.out.printf("%s x %d%n", key.getMonitor().getName(), value);
-                });*/
-
-        /*List<Set<Task>> allPaths = LifecycleHelper.computeAllPaths(new ArrayList<>(),
-                new LinkedHashSet<>(), t12);
-        allPaths.stream()
-                .map(LifecycleHelper::translateFromTaskToString)
-                .peek(System.out::println)
-                .mapToLong(Collection::size)
-                .sum();*/
-//
-//        System.out.println(LifecycleHelper.computeTasksScores(Set.of(t8)));
-
-        LifecycleManager lifecycleManager = new LifecycleManager("LIFECYCLE",allTasks);
+        LifecycleManager lifecycleManager = new LifecycleManager("LIFECYCLE", allTasks);
         lifecycleManager.execute();
+    }
+
+    @Test
+    void areSetEqual() {
+        String paul = "Paul";
+        String victor = "Victor";
+        String louis = "Louis";
+        Set<String> name1 = Set.of(paul, victor);
+        Set<String> name2 = Set.of(victor, louis);
+        Set<String> name3 = Set.of(louis, victor);
+        Assertions.assertEquals(name3, name2);
     }
 
 }
