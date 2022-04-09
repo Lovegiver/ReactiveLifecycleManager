@@ -31,31 +31,4 @@ public interface LifecycleHelper {
         }
     }
 
-    static void computeAllPaths(List<Set<Task>> allPaths, Set<Task> path, Task task) {
-        path.add(task);
-        if (!isFirst.test(task)) {
-            for (Task t : task.getPredecessors()) {
-                Set<Task> pathCopy = new LinkedHashSet<>(path);
-                computeAllPaths(allPaths, pathCopy, t);
-            }
-        } else {
-            allPaths.add(path);
-        }
-    }
-
-    static Map<Set<Task>,Integer> computePathsScores(List<Set<Task>> paths) {
-        Map<Set<Task>,Integer> pathsWeight = new HashMap<>(paths.size());
-        paths.forEach(path -> {
-            int pathWeight = path.stream()
-                    .filter(task -> !task.isDone())
-                    .mapToInt(Task::computeScore)
-                    .sum();
-            pathsWeight.put(path, pathWeight);
-        });
-        return pathsWeight.entrySet().stream()
-                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                (e1, e2) -> e1, LinkedHashMap::new));
-    }
-
 }

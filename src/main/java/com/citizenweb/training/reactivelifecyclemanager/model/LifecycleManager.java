@@ -30,7 +30,6 @@ public class LifecycleManager implements LifecycleHelper {
 
     public void execute() {
         Set<Task> allTriggeringTasks = LifecycleHelper.getTerminalTasks(this.tasks, EventStatus.ALL);
-        List<Set<Task>> allPaths = new ArrayList<>();
         while (allTriggeringTasks.stream().anyMatch(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))) {
             Set<Task> toBeTriggeredTasks = LifecycleHelper.getTerminalTasks(this.tasks, EventStatus.NEW);
             ConcurrentHashMap<Task,Integer> scoredPaths = new ConcurrentHashMap<>();
@@ -39,7 +38,6 @@ public class LifecycleManager implements LifecycleHelper {
                 LifecycleHelper.findAllTasksFromTree(pathForTask, task);
                 log.info("Task [ {} ] sub-tasks -> [ {} ]", task.getMonitor().getName(), pathForTask.stream()
                         .map(t -> t.getMonitor().getName()).distinct().toArray());
-                allPaths.add(pathForTask); //FIXME
                 int pathWeight = pathForTask.stream()
                         .filter(t -> EventStatus.NEW.equals(t.getMonitor().getStatus()))
                         .mapToInt(Task::computeScore)

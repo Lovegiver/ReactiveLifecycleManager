@@ -7,7 +7,6 @@ import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import org.reactivestreams.Publisher;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -62,15 +61,12 @@ public class Task implements TaskHelper {
                 .filter(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))
                 .forEach(task -> {
             var monitor = task.getMonitor();
-            Disposable disposable;
-            //noinspection ReactiveStreamsUnusedPublisher
+                    //noinspection ReactiveStreamsUnusedPublisher
             if (task.getExpectedResult() instanceof Mono<?>) {
-                disposable = Mono.from(task.getExpectedResult())
+                Mono.from(task.getExpectedResult())
                         .log()
                         .subscribeOn(scheduler)
-                        .doOnSubscribe(o -> {
-                            log.info(String.format("Task [ %s ] to be started", monitor.getName()));
-                        })
+                        .doOnSubscribe(o -> log.info(String.format("Task [ %s ] to be started", monitor.getName())))
                         .doOnError(throwable -> {
                             TaskHelper.updateTaskOnError.accept(task);
                             log.error(throwable.getMessage());
@@ -85,23 +81,21 @@ public class Task implements TaskHelper {
                         });
             } else //noinspection ReactiveStreamsUnusedPublisher
                 if (task.getExpectedResult() instanceof Flux<?>) {
-                disposable = Flux.from(task.getExpectedResult())
-                        .log()
-                        .subscribeOn(scheduler)
-                        .doOnSubscribe(o -> {
-                            log.info(String.format("Task [ %s ] started", monitor.getName()));
-                        })
-                        .doOnError(throwable -> {
-                            TaskHelper.updateTaskOnError.accept(task);
-                            log.error(throwable.getMessage());
-                        })
-                        .doOnComplete( () -> {
-                            TaskHelper.updateTaskOnSuccess.accept(task);
-                            log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
-                        })
-                        .subscribe(o -> {
-                            TaskHelper.updateTaskOnSubscribe.accept(task);
-                        });
+                    Flux.from(task.getExpectedResult())
+                            .log()
+                            .subscribeOn(scheduler)
+                            .doOnSubscribe(o -> log.info(String.format("Task [ %s ] started", monitor.getName())))
+                            .doOnError(throwable -> {
+                                TaskHelper.updateTaskOnError.accept(task);
+                                log.error(throwable.getMessage());
+                            })
+                            .doOnComplete(() -> {
+                                TaskHelper.updateTaskOnSuccess.accept(task);
+                                log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
+                            })
+                            .subscribe(o -> {
+                                TaskHelper.updateTaskOnSubscribe.accept(task);
+                            });
             } else {
                 throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());
             }
