@@ -2,8 +2,10 @@ import com.citizenweb.training.reactivelifecyclemanager.model.ExecutableTask;
 import com.citizenweb.training.reactivelifecyclemanager.model.Task;
 import lombok.extern.log4j.Log4j2;
 import org.junit.jupiter.api.Test;
+import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,42 +20,56 @@ public class TaskTest {
 
         ExecutableTask<String> executable1 = inputs -> {
             String result = "Result 1";
-            return Mono.just(result);
+            return Mono.just(result).delayElement(Duration.ofSeconds(5));
         };
         Task task1 = new Task("Task 1", executable1, Collections.emptySet());
         System.out.println("Task 1 implemented");
 
         ExecutableTask<String> executable2 = inputs -> {
             String result = "Result 2";
-            return Mono.just(result);
+            return Mono.just(result).delayElement(Duration.ofSeconds(2));
         };
         Task task2 = new Task("Task 2", executable2, Collections.emptySet());
         System.out.println("Task 2 implemented");
 
         ExecutableTask<String> executable3 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            inputs.subscribe(mono -> result.set(result.get() + getValue(mono)));
-            return Mono.just(result.get());
+            return Mono.zip( ((Mono<?>) inputs[0]), ((Mono<?>) inputs[1] ),(m1, m2) -> {
+                result.set(((String) m1).concat((String) m2));
+                return result.get();
+            });
         };
         Task task3 = new Task("Task 3", executable3, Set.of(task1, task2));
         System.out.println("Task 3 implemented");
 
         ExecutableTask<String> executable4 = inputs -> {
             AtomicReference<String> result = new AtomicReference<>("");
-            inputs.subscribe(mono -> result.set(result.get() + getValue(mono)));
-            return Mono.just(result.get());
+            return Mono.zip( ((Mono<?>) inputs[0]), ((Mono<?>) inputs[1]),(m1, m2) -> {
+                result.set(((String) m1).concat((String) m2));
+                return result.get();
+            });
         };
         Task task4 = new Task("Task 4", executable4, Set.of(task1, task3));
         System.out.println("Task 4 implemented");
 
+        ExecutableTask<String> executable5 = inputs -> {
+            AtomicReference<String> result = new AtomicReference<>("");
+            return Mono.zip( ((Mono<?>) inputs[0]), ((Mono<?>) inputs[1]),(m1, m2) -> {
+                result.set(((String) m1).concat((String) m2));
+                return result.get();
+            });
+        };
+        Task task5 = new Task("Task 5", executable5, Set.of(task3, task4));
+        System.out.println("Task 5 implemented");
+
         var task1Hashcode = task1.hashCode();
         var task1HashcodeFromTask3 = task3.getPredecessors().stream()
-                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .filter(task -> "Task 1".equals(task.getMonitor().getName()))
                 .map(Task::hashCode)
                 .findAny()
                 .orElseThrow();
         var task1HashcodeFromTask4 = task4.getPredecessors().stream()
-                .filter(task -> "Task 1".equals(task.getTaskName()))
+                .filter(task -> "Task 1".equals(task.getMonitor().getName()))
                 .map(Task::hashCode)
                 .findAny()
                 .orElseThrow();
@@ -61,14 +77,15 @@ public class TaskTest {
         assertEquals(task1Hashcode,task1HashcodeFromTask3);
         assertEquals(task1HashcodeFromTask3,task1HashcodeFromTask4);
 
-        task1.execute().log().subscribe(System.out::println);
-        task2.execute().log().subscribe(System.out::println);
-        task3.execute().log().subscribe(System.out::println);
-        task4.execute().log().subscribe(System.out::println);
+        /*Mono.from(task1.execute()).log().subscribe(System.out::println);
+        Mono.from(task2.execute()).log().subscribe(System.out::println);
+        Mono.from(task3.execute()).log().subscribe(System.out::println);
+        Mono.from(task4.execute()).log().subscribe(System.out::println);*/
+        Disposable task5Disposable = Mono.from(task5.execute()).log().subscribe(System.out::println);
+        while (!task5Disposable.isDisposed()) {
+            Mono.delay(Duration.ofSeconds(10)).subscribe();
+        }
 
     }
 
-    private <T> T getValue(Mono<T> mono) {
-        return mono.block();
-    }
 }
