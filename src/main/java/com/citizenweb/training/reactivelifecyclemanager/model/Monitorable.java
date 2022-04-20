@@ -1,5 +1,7 @@
 package com.citizenweb.training.reactivelifecyclemanager.model;
 
+import java.util.function.Consumer;
+
 public interface Monitorable {
     String getId();
 
@@ -26,4 +28,17 @@ public interface Monitorable {
     long getDurationMillis();
 
     void setDurationMillis(long duration);
+
+    void updateStatus(Consumer<Monitorable> consumer);
+
+    Consumer<Monitorable> running = monitor -> {
+        monitor.setStatus(EventStatus.RUNNING);
+        monitor.setStartingTime(System.currentTimeMillis());
+    };
+
+    Consumer<Monitorable> completing = monitor -> {
+        monitor.setStatus(EventStatus.DONE);
+        monitor.setEndingTime(System.currentTimeMillis());
+        monitor.setDurationMillis(monitor.getEndingTime() - monitor.getStartingTime());
+    };
 }

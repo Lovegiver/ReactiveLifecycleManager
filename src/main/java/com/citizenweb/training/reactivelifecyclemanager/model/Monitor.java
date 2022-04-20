@@ -7,6 +7,7 @@ import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Log4j2
 @ToString(onlyExplicitlyIncluded = true)
@@ -54,5 +55,10 @@ public class Monitor implements Monitorable {
         this.type = type.toString();
         this.name = name;
         this.id = UUID.randomUUID().toString();
+    }
+
+    @Override
+    public void updateStatus(Consumer<Monitorable> consumer) {
+        consumer.accept(this);
     }
 }

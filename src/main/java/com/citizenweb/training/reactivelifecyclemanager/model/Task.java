@@ -21,25 +21,36 @@ import java.util.function.Predicate;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(onlyExplicitlyIncluded = true)
 public class Task implements TaskHelper {
-    /** Monitor is the part to be published to web page */
+    public final static Predicate<Task> isFirst = task -> task.getPredecessors().isEmpty();
+    public final static Predicate<Task> isLast = task -> task.getSuccessors().isEmpty();
+    /**
+     * Monitor is the part to be published to web page
+     */
     @EqualsAndHashCode.Include
     @ToString.Include
     private final Monitorable monitor;
-    /** {@link Set} of {@link Task} to be done <b>before</b>> THIS one */
+    /**
+     * {@link Set} of {@link Task} to be done <b>before</b>> THIS one
+     */
     @EqualsAndHashCode.Include
     @ToString.Include
     private final Set<Task> predecessors;
-    /** {@link Set} of {@link Task} to be done <b>after</b> THIS one */
-    private Set<Task> successors = new HashSet<>();
-    /** Domain logic encapsulated into THIS {@link Task} */
+    /**
+     * Domain logic encapsulated into THIS {@link Task}
+     */
     private final ExecutableTask<?> executableTask;
-    /** Array containing the result {@link Mono}s of all previous {@link Task}s */
+    /**
+     * Array containing the result {@link Mono}s of all previous {@link Task}s
+     */
     private final Publisher<?>[] inputArray;
-    /** The result produced by THIS {@link Task} */
+    /**
+     * The result produced by THIS {@link Task}
+     */
     private final Publisher<?> expectedResult;
-
-    public final static Predicate<Task> isFirst = task -> task.getPredecessors().isEmpty();
-    public final static Predicate<Task> isLast = task -> task.getSuccessors().isEmpty();
+    /**
+     * {@link Set} of {@link Task} to be done <b>after</b> THIS one
+     */
+    private Set<Task> successors = new HashSet<>();
 
     public Task(String taskName, ExecutableTask<?> executableTask,
                 Set<Task> predecessors) {
@@ -57,49 +68,41 @@ public class Task implements TaskHelper {
 
     public Publisher<?> execute() {
         Scheduler scheduler = Schedulers.fromExecutor(TaskExecutor.getExecutor());
-        predecessors.stream()
-                .filter(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))
+        predecessors
+                .stream().filter(task -> EventStatus.NEW.equals(task.getMonitor().getStatus()))
                 .forEach(task -> {
-            var monitor = task.getMonitor();
+                    var monitor = task.getMonitor();
+                    monitor.setStatus(EventStatus.RUNNING);
+                    monitor.setStartingTime(System.currentTimeMillis());
+                    log.info(String.format("Task [ %s ] to be started", monitor.getName()));
                     //noinspection ReactiveStreamsUnusedPublisher
-            if (task.getExpectedResult() instanceof Mono<?>) {
-                Mono.from(task.getExpectedResult())
-                        .log()
-                        .subscribeOn(scheduler)
-                        .doOnSubscribe(o -> log.info(String.format("Task [ %s ] to be started", monitor.getName())))
-                        .doOnError(throwable -> {
-                            TaskHelper.updateTaskOnError.accept(task);
-                            log.error(throwable.getMessage());
-                        })
-                        .doOnSuccess(o -> {
-                            TaskHelper.updateTaskOnSuccess.accept(task);
-                            log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
-                        })
-                        .subscribe(o -> {
-                            TaskHelper.updateTaskOnSubscribe.accept(task);
-                            log.info(String.format("Subscribing to Task [ %s ]", monitor.getName()));
-                        });
-            } else //noinspection ReactiveStreamsUnusedPublisher
-                if (task.getExpectedResult() instanceof Flux<?>) {
-                    Flux.from(task.getExpectedResult())
-                            .log()
-                            .subscribeOn(scheduler)
-                            .doOnSubscribe(o -> log.info(String.format("Task [ %s ] started", monitor.getName())))
-                            .doOnError(throwable -> {
-                                TaskHelper.updateTaskOnError.accept(task);
-                                log.error(throwable.getMessage());
-                            })
-                            .doOnComplete(() -> {
-                                TaskHelper.updateTaskOnSuccess.accept(task);
-                                log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
-                            })
-                            .subscribe(o -> {
-                                TaskHelper.updateTaskOnSubscribe.accept(task);
-                            });
-            } else {
-                throw new TaskExecutionException("Neither Mono nor Flux",new Throwable());
-            }
-        });
+                    if (task.getExpectedResult() instanceof Mono<?>) {
+                        Mono.from(task.getExpectedResult())
+                                .log()
+                                .subscribeOn(scheduler)
+                                .doOnError(throwable -> {
+                                    TaskHelper.updateTaskOnError.accept(task);
+                                    log.error(throwable.getMessage());
+                                })
+                                .subscribe(o -> log.info(String.format("Subscribing to Task [ %s ]", monitor.getName())));
+                    } else //noinspection ReactiveStreamsUnusedPublisher
+                        if (task.getExpectedResult() instanceof Flux<?>) {
+                            Flux.from(task.getExpectedResult())
+                                    .log()
+                                    .subscribeOn(scheduler)
+                                    .doOnError(throwable -> {
+                                        TaskHelper.updateTaskOnError.accept(task);
+                                        log.error(throwable.getMessage());
+                                    })
+                                    .subscribe();
+                        } else {
+                            throw new TaskExecutionException("Neither Mono nor Flux", new Throwable());
+                        }
+                    monitor.setStatus(EventStatus.DONE);
+                    monitor.setEndingTime(System.currentTimeMillis());
+                    monitor.setDurationMillis(this.monitor.getEndingTime()-this.monitor.getStartingTime());
+                    log.info(String.format("Task [ %s ] succeeded", monitor.getName()));
+                });
         return Flux.defer(() -> Flux.from(this.expectedResult));
     }
 

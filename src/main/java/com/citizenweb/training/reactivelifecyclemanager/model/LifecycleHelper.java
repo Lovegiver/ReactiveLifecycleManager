@@ -7,7 +7,8 @@ import java.util.stream.Collectors;
 public interface LifecycleHelper {
 
     Predicate<Task> isFirst = task -> task.getPredecessors().isEmpty();
-    Predicate<Task> isLast = task -> task.getSuccessors().isEmpty();
+    Predicate<Task> isLast = task -> task.getSuccessors().isEmpty()
+            || task.getSuccessors().stream().noneMatch(successor -> EventStatus.NEW.equals(successor.getMonitor().getStatus()));
 
     static Set<Task> getTerminalTasks(Set<Task> allTasks, EventStatus status) {
         if (EventStatus.ALL.equals(status)) {

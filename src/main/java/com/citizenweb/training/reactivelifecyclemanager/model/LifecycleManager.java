@@ -7,7 +7,10 @@ import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Log4j2
@@ -48,13 +51,12 @@ public class LifecycleManager implements LifecycleHelper {
             Map.Entry<Task,Integer> entry = Collections.max(scoredPaths.entrySet(), Map.Entry.comparingByValue());
             Task taskToExecute = entry.getKey();
             taskToExecute.getMonitor().setStatus(EventStatus.RUNNING);
-            int result;
+            //noinspection ReactiveStreamsUnusedPublisher
             if (taskToExecute.getExpectedResult() instanceof Mono<?>) {
-                result = (int) Mono.from(taskToExecute.execute()).log().block();
+                Mono.from(taskToExecute.execute()).log().subscribe();
             } else {
-                result = (int) Flux.from(taskToExecute.execute()).log().blockLast();
+                Flux.from(taskToExecute.execute()).log().subscribe();
             }
-            log.info("RESULT for TASK [ {} ] = [ {} ]", taskToExecute.getMonitor().getName(), result);
             taskToExecute.getMonitor().setStatus(EventStatus.DONE);
         }
 

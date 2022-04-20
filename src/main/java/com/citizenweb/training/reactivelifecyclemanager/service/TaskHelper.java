@@ -26,17 +26,4 @@ public interface TaskHelper {
         task.getMonitor().setStatus(EventStatus.IN_ERROR);
     };
 
-    Consumer<Task> updateTaskOnSuccess = task -> {
-        var monitor = task.getMonitor();
-        monitor.setStatus(EventStatus.DONE);
-        monitor.setEndingTime(System.currentTimeMillis());
-        monitor.setDurationMillis(monitor.getEndingTime() - monitor.getStartingTime());
-    };
-
-    Consumer<Task> updateTaskOnSubscribe = task -> {
-        var monitor = task.getMonitor();
-        monitor.setStatus(EventStatus.RUNNING);
-        monitor.setStartingTime(System.currentTimeMillis());
-    };
-
 }
